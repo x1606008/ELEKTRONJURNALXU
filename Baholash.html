@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Baholash daftari</title>
+
+<style>
+body { font-family: Arial, sans-serif; 
+  background-image: url(https://i.artfile.ru/1920x1200_68886_[www.ArtFile.ru].jpg);
+  background-size: cover; 
+  background-attachment: fixed;
+  }
+h2 { text-align: center; }
+
+.table-wrapper { overflow-x: auto; }
+
+table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 12px;
+}
+
+th, td {
+  border: 1px solid #000;
+  padding: 4px;
+  text-align: center;
+}
+
+th { background: #eaeaea; }
+p{
+  color: white; 
+}
+td.name {
+  text-align: left;
+  white-space: nowrap;
+}
+td{
+  color: antiquewhite;
+}
+td.result {
+  font-weight: bold;
+ color: #f5f5f5;
+}
+h2{
+  color: white;
+}
+
+.delete-btn {
+  color: red;
+  cursor: pointer;
+  font-weight: bold;
+  margin-left: 4px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Baholash daftari</h2>
+
+<p>
+Sana / mavzu (vergul bilan):<br>
+<input id="datesInput" style="width:100%" placeholder="01.09, 05.09, Nazorat">
+<button id="addDatesBtn">Qo‘shish</button>
+</p>
+
+<p>
+O‘quvchi F.I.Sh:
+<input id="studentName">
+<button id="addStudentBtn">➕ O‘quvchi</button>
+</p>
+
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+  <th rowspan="2">№</th>
+  <th rowspan="2">O‘quvchi F.I.Sh</th>
+  <th id="daysHeader">Baholar</th>
+  <th rowspan="2">O‘rtacha</th>
+</tr>
+<tr id="datesRow"></tr>
+</thead>
+
+<tbody id="tbody"></tbody>
+</table>
+</div>
+<p>
+<button class="save-btn" onclick="manualSave()">💾 Saqlash</button>
+<span id="saveStatus"></span>
+</p>
+<script>
+/* ===== ELEMENTLAR ===== */
+const datesInput = document.getElementById('datesInput');
+const studentName = document.getElementById('studentName');
+const tbody = document.getElementById('tbody');
+const datesRow = document.getElementById('datesRow');
+const daysHeader = document.getElementById('daysHeader');
+
+/* ===== MA'LUMOT ===== */
+let dates = [];
+let students = [];
+
+/* ===== SAQLASH ===== */
+function saveData() {
+  localStorage.setItem('gradesData', JSON.stringify({ dates, students }));
+}
+function manualSave() {
+  saveData();
+  saveStatus.innerText = ' ✅ Saqlandi';
+  setTimeout(() => saveStatus.innerText = '', 2000);
+}
+
+function loadData() {
+  const data = JSON.parse(localStorage.getItem('gradesData'));
+  if (!data) return;
+
+  dates = data.dates || [];
+  students = data.students || [];
+
+  datesInput.value = dates.join(', ');
+  renderDates();
+  renderStudents();
+}
+
+/* ===== SANALAR ===== */
+document.getElementById('addDatesBtn').onclick = () => {
+  dates = datesInput.value.split(',').map(d => d.trim()).filter(Boolean);
+
+  students.forEach(s => {
+    while (s.grades.length < dates.length) s.grades.push('');
+    s.grades.length = dates.length;
+  });
+
+  renderDates();
+  renderStudents();
+  saveData();
+};
+
+function renderDates() {
+  datesRow.innerHTML = '';
+  daysHeader.colSpan = dates.length || 1;
+
+  dates.forEach((d, i) => {
+    const th = document.createElement('th');
+    th.innerHTML = `
+      ${d}
+      <span class="delete-btn" onclick="deleteDate(${i})">✖</span>
+    `;
+    datesRow.appendChild(th);
+  });
+}
+
+function deleteDate(index) {
+  dates.splice(index, 1);
+  students.forEach(s => s.grades.splice(index, 1));
+  renderDates();
+  renderStudents();
+  saveData();
+}
+
+/* ===== O‘QUVCHI ===== */
+document.getElementById('addStudentBtn').onclick = () => {
+  if (!studentName.value.trim()) return;
+
+  students.push({
+    name: studentName.value.trim(),
+    grades: Array(dates.length).fill('')
+  });
+
+  studentName.value = '';
+  renderStudents();
+  saveData();
+};
+
+function deleteStudent(index) {
+  students.splice(index, 1);
+  renderStudents();
+  saveData();
+}
+
+/* ===== JADVAL ===== */
+function renderStudents() {
+  tbody.innerHTML = '';
+
+  students.forEach((s, si) => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${si + 1}</td>
+      <td class="name">
+        ${s.name}
+        <span class="delete-btn" onclick="deleteStudent(${si})">❌</span>
+      </td>
+    `;
+
+    s.grades.forEach((g, gi) => {
+      const td = document.createElement('td');
+      td.contentEditable = true;
+      td.innerText = g;
+
+      td.addEventListener('input', () => {
+        s.grades[gi] = td.innerText.trim();
+        tr.querySelector('.result').innerText = average(s.grades);
+        saveData();
+      });
+
+      tr.appendChild(td);
+    });
+
+    const avgTd = document.createElement('td');
+    avgTd.className = 'result';
+    avgTd.innerText = average(s.grades);
+    tr.appendChild(avgTd);
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* ===== O‘RTACHA ===== */
+function average(arr) {
+  const nums = arr.map(n => parseFloat(n)).filter(n => !isNaN(n));
+  if (!nums.length) return '';
+  return (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(2);
+}
+
+/* ===== START ===== */
+loadData();
+</script>
+
+</body>
+</html>

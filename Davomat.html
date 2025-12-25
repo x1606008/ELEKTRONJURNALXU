@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <title>Davomat daftari</title>
+
+  <style>
+    body { font-family: Arial, sans-serif; 
+    background-image: url(https://i.artfile.ru/1920x1200_68886_[www.ArtFile.ru].jpg);
+    background-size: cover;
+    background-attachment: fixed;
+    }
+    h2 { text-align: center; 
+    color: white;
+    }
+
+    table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+    p{
+      color: white; 
+    }
+
+    th, td {
+      border: 1px solid #000;
+      padding: 4px;
+      text-align: center;
+      background: #fff;
+    }
+
+    th { background: #eaeaea; }
+    td.name { text-align: left; }
+    td.result { font-weight: bold; }
+
+    .present { background: #c8f7c5; }
+    .absent { background: #f7c5c5; }
+
+    /* Sticky o‘ng ustunlar */
+    .sticky-right-1 {
+      position: sticky;
+      right: 60px;
+      z-index: 3;
+      background: #fff;
+    }
+
+    .sticky-right-2 {
+      position: sticky;
+      right: 0;
+      z-index: 3;
+      background: #fff;
+    }
+
+    th.sticky-right-1,
+    th.sticky-right-2 {
+      background: #ddd;
+    }
+
+  </style>
+</head>
+<body>
+
+<h2>Davomat daftari</h2>
+
+<p>
+  Fan: Kompyuter Savodxonligi &nbsp;&nbsp;
+  Guruh: 1
+</p>  
+
+<p>
+  Sana (vergul bilan):<br>
+  <input id="datesInput" style="width:100%" placeholder="01.09, 02.09, 03.09">
+  <button onclick="createDates()">Sana qo‘shish</button>
+</p>
+
+<p>
+  O‘quvchi F.I.Sh:
+  <input id="studentName">
+  <button onclick="addStudent()">➕ O‘quvchi qo‘shish</button>
+</p>
+
+<div class="table-wrapper">
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2">№</th>
+      <th rowspan="2">O‘quvchi F.I.Sh</th>
+      <th id="daysHeader">Kunlar</th>
+      <th rowspan="2" class="sticky-right-1">Kelgan</th>
+      <th rowspan="2" class="sticky-right-2">Kelmagan</th>
+    </tr>
+    <tr id="datesRow"></tr>
+  </thead>
+
+  <tbody id="tbody"></tbody>
+</table>
+</div>
+
+<p>
+  🟢 + — qatnashdi &nbsp;&nbsp;
+  🔴 − — qatnashmadi
+</p>
+
+<script>
+  let dates = [];
+  let students = [];
+
+  /* ===== SAQLASH ===== */
+  function saveData() {
+    localStorage.setItem(
+      'attendanceData',
+      JSON.stringify({ dates, students })
+    );
+  }
+
+  function loadData() {
+    const data = JSON.parse(localStorage.getItem('attendanceData'));
+    if (!data) return;
+
+    dates = data.dates || [];
+    students = data.students || [];
+
+    document.getElementById('datesInput').value = dates.join(', ');
+    renderDates();
+    renderStudents();
+  }
+
+  /* ===== SANALAR ===== */
+  function createDates() {
+    dates = document.getElementById('datesInput').value
+      .split(',')
+      .map(d => d.trim())
+      .filter(Boolean);
+
+    students.forEach(s => {
+      while (s.attendance.length < dates.length) s.attendance.push('');
+      s.attendance.length = dates.length;
+    });
+
+    renderDates();
+    renderStudents();
+    saveData();
+  }
+
+  function renderDates() {
+    const row = document.getElementById('datesRow');
+    const header = document.getElementById('daysHeader');
+
+    row.innerHTML = '';
+    header.colSpan = dates.length || 1;
+
+    dates.forEach((d, index) => {
+      const th = document.createElement('th');
+      th.innerText = d;
+
+      /* SANANI TAHRIRLASH */
+      th.contentEditable = true;
+      th.oninput = () => {
+        dates[index] = th.innerText.trim();
+        saveData();
+      };
+
+      row.appendChild(th);
+    });
+  }
+
+  /* ===== O‘QUVCHILAR ===== */
+  function addStudent() {
+    if (!dates.length) {
+      alert('Avval sanani kiriting!');
+      return;
+    }
+
+    const input = document.getElementById('studentName');
+    if (!input.value.trim()) return;
+
+    students.push({
+      name: input.value.trim(),
+      attendance: Array(dates.length).fill('')
+    });
+
+    input.value = '';
+    renderStudents();
+    saveData();
+  }
+
+  function renderStudents() {
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+
+    students.forEach((student, sIndex) => {
+      const row = document.createElement('tr');
+
+      row.innerHTML = `
+        <td>${sIndex + 1}</td>
+        <td class="name">${student.name}</td>
+      `;
+
+      student.attendance.forEach((val, dIndex) => {
+        const td = document.createElement('td');
+        td.innerText = val;
+
+        if (val === '+') td.className = 'present';
+        if (val === '-') td.className = 'absent';
+
+        td.onclick = () => toggle(td, sIndex, dIndex);
+        row.appendChild(td);
+      });
+
+      const present = student.attendance.filter(v => v === '+').length;
+      const absent = student.attendance.filter(v => v === '-').length;
+
+      const tdP = document.createElement('td');
+      tdP.className = 'result sticky-right-1';
+      tdP.innerText = present;
+      row.appendChild(tdP);
+
+      const tdA = document.createElement('td');
+      tdA.className = 'result sticky-right-2';
+      tdA.innerText = absent;
+      row.appendChild(tdA);
+
+      tbody.appendChild(row);
+    });
+  }
+
+  /* ===== BELGILASH ===== */
+  function toggle(td, sIndex, dIndex) {
+    let val = students[sIndex].attendance[dIndex];
+
+    if (val === '') {
+      val = '+';
+      td.className = 'present';
+    } else if (val === '+') {
+      val = '-';
+      td.className = 'absent';
+    } else {
+      val = '';
+      td.className = '';
+    }
+
+    students[sIndex].attendance[dIndex] = val;
+    td.innerText = val;
+
+    renderStudents();
+    saveData();
+  }
+
+  /* ===== BOSHLASH ===== */
+  loadData();
+</script>
+
+</body>
+</html>
+<!-- 21.12.2025, 22.12.2025, 23.12.2025, 24.12.2025, 25.12.2025, 26.12.2025, 27.12.2025, 04.01.2026, 05.01.2026, 06.01.2026, 07.01.2026, 08.01.2026, 09.01.2026, 10.01.2026, 12.01.2026, 13.01.2026, 15.01.2026, 16.01.2026, 17.01.2026 -->
